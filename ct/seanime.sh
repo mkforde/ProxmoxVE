@@ -20,23 +20,6 @@ variables
 color
 catch_errors
 
-function get_seanime_asset_pattern() {
-  local arch
-  arch=$(dpkg --print-architecture 2>/dev/null || uname -m)
-  case "$arch" in
-  amd64 | x86_64)
-    echo "seanime-*Linux_x86_64.tar.gz"
-    ;;
-  arm64 | aarch64)
-    echo "seanime-*Linux_arm64.tar.gz"
-    ;;
-  *)
-    msg_error "Unsupported architecture: $arch"
-    exit
-    ;;
-  esac
-}
-
 function normalize_seanime_binary() {
   local binary_path
   binary_path=$(find /opt/seanime/app -maxdepth 1 -type f \( -name 'seanime' -o -name 'seanime-*' -o -name 'Seanime*' \) ! -name '*.tar.gz' ! -name '*.zip' | sort | head -n1)
@@ -64,14 +47,22 @@ function update_script() {
   fi
 
   if check_for_gh_release "seanime" "5rahim/seanime"; then
-    local asset_pattern
-    asset_pattern=$(get_seanime_asset_pattern)
-
     msg_info "Stopping Service"
     systemctl stop seanime
     msg_ok "Stopped Service"
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "seanime" "5rahim/seanime" "prebuild" "latest" "/opt/seanime/app" "$asset_pattern"
+    case "$(dpkg --print-architecture 2>/dev/null || uname -m)" in
+    amd64 | x86_64)
+      CLEAN_INSTALL=1 fetch_and_deploy_gh_release "seanime" "5rahim/seanime" "prebuild" "latest" "/opt/seanime/app" "seanime-*Linux_x86_64.tar.gz"
+      ;;
+    arm64 | aarch64)
+      CLEAN_INSTALL=1 fetch_and_deploy_gh_release "seanime" "5rahim/seanime" "prebuild" "latest" "/opt/seanime/app" "seanime-*Linux_arm64.tar.gz"
+      ;;
+    *)
+      msg_error "Unsupported architecture: $(dpkg --print-architecture 2>/dev/null || uname -m)"
+      exit
+      ;;
+    esac
     normalize_seanime_binary
 
     msg_info "Starting Service"

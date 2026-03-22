@@ -14,23 +14,6 @@ network_check
 update_os
 setup_hwaccel
 
-function get_seanime_asset_pattern() {
-  local arch
-  arch=$(dpkg --print-architecture 2>/dev/null || uname -m)
-  case "$arch" in
-  amd64 | x86_64)
-    echo "seanime-*Linux_x86_64.tar.gz"
-    ;;
-  arm64 | aarch64)
-    echo "seanime-*Linux_arm64.tar.gz"
-    ;;
-  *)
-    msg_error "Unsupported architecture: $arch"
-    exit 1
-    ;;
-  esac
-}
-
 function normalize_seanime_binary() {
   local binary_path
   binary_path=$(find /opt/seanime/app -maxdepth 1 -type f \( -name 'seanime' -o -name 'seanime-*' -o -name 'Seanime*' \) ! -name '*.tar.gz' ! -name '*.zip' | sort | head -n1)
@@ -56,13 +39,18 @@ msg_info "Preparing Directories"
 mkdir -p /opt/seanime/app /opt/seanime/data
 msg_ok "Prepared Directories"
 
-if ! id -u seanime >/dev/null 2>&1; then
-  $STD adduser --system --group --home /opt/seanime --shell /usr/sbin/nologin --no-create-home seanime
-fi
-chown -R seanime:seanime /opt/seanime/data
-
-ASSET_PATTERN=$(get_seanime_asset_pattern)
-fetch_and_deploy_gh_release "seanime" "5rahim/seanime" "prebuild" "latest" "/opt/seanime/app" "$ASSET_PATTERN"
+case "$(dpkg --print-architecture 2>/dev/null || uname -m)" in
+amd64 | x86_64)
+  fetch_and_deploy_gh_release "seanime" "5rahim/seanime" "prebuild" "latest" "/opt/seanime/app" "seanime-*Linux_x86_64.tar.gz"
+  ;;
+arm64 | aarch64)
+  fetch_and_deploy_gh_release "seanime" "5rahim/seanime" "prebuild" "latest" "/opt/seanime/app" "seanime-*Linux_arm64.tar.gz"
+  ;;
+*)
+  msg_error "Unsupported architecture: $(dpkg --print-architecture 2>/dev/null || uname -m)"
+  exit 1
+  ;;
+esac
 normalize_seanime_binary
 
 msg_info "Configuring Seanime"
@@ -84,8 +72,6 @@ After=network.target
 
 [Service]
 Type=simple
-User=seanime
-Group=seanime
 EnvironmentFile=/opt/seanime/seanime.env
 WorkingDirectory=/opt/seanime/app
 ExecStart=/opt/seanime/app/seanime
